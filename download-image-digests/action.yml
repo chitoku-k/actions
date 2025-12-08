@@ -1,0 +1,20 @@
+name: Download image digests
+description: Download artifacts of image digests
+
+inputs:
+  directory:
+    description: Directory to save digest
+    default: ${{ runner.temp }}/digests
+  pattern:
+    description: Pattern for the names of artifacts
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download digests
+      uses: actions/download-artifact@v6
+      with:
+        path: ${{ inputs.directory }}
+        pattern: ${{ inputs.pattern }}
+        merge-multiple: true

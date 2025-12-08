@@ -1,0 +1,32 @@
+name: Upload image digest
+description: Upload digest as artifact
+
+inputs:
+  directory:
+    description: Directory to save digest
+    default: ${{ runner.temp }}/digests
+  digest:
+    description: Digest to upload
+    required: true
+  artifact:
+    description: Name of artifact
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Save digest
+      shell: bash
+      env:
+        DIRECTORY: ${{ inputs.directory }}
+        DIGEST: ${{ inputs.digest }}
+      run: |
+        mkdir -p "$DIRECTORY"
+        touch "$DIRECTORY/${DIGEST#sha256:}"
+    - name: Upload digests
+      uses: actions/upload-artifact@v5
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ inputs.directory }}/*
+        if-no-files-found: error
+        retention-days: 1
