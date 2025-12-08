@@ -1,0 +1,16 @@
+name: Describe git tag
+description: Get a human-readable object name of the commit
+
+outputs:
+  value:
+    description: Human-readable object name of the commit
+    value: ${{ steps.describe.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Describe git tag
+      shell: bash
+      id: describe
+      run: |
+        echo value="$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
