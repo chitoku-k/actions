@@ -1,0 +1,53 @@
+name: Set up kubectl context
+description: Configure kubectl context based on OpenID Connect
+
+inputs:
+  aud:
+    description: Audience to get an ID token with
+    default: k8s.chitoku.jp
+  cluster:
+    description: Cluster name in kubeconfig
+    default: k8s.chitoku.jp
+  server:
+    description: Server in kubeconfig
+    default: https://k8s.chitoku.jp
+  user:
+    description: Username in kubeconfig
+    default: github-actions@k8s.chitoku.jp
+  namespace:
+    description: Namespace in kubeconfig
+    default: default
+  context:
+    description: Context name in kubeconfig
+    default: k8s.chitoku.jp
+
+runs:
+  using: composite
+  steps:
+    - name: Set up ID token
+      uses: actions/github-script@v8
+      id: id-token
+      env:
+        OIDC_AUD: ${{ inputs.aud }}
+      with:
+        result-encoding: string
+        script: |
+          return await core.getIDToken(process.env.OIDC_AUD);
+    - name: Configure context
+      shell: bash
+      env:
+        KUBECTL_CONTEXT: ${{ inputs.context }}
+        KUBECTL_CLUSTER: ${{ inputs.cluster }}
+        KUBECTL_SERVER: ${{ inputs.server }}
+        KUBECTL_USER: ${{ inputs.user }}
+        KUBECTL_NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        kubectl config set-cluster "$KUBECTL_CLUSTER" --server="$KUBECTL_SERVER"
+        kubectl config set-credentials "$KUBECTL_USER" --token=${{ steps.id-token.outputs.result }}
+        kubectl config set-context "$KUBECTL_CONTEXT" --cluster="$KUBECTL_CONTEXT" --user="$KUBECTL_USER" --namespace="$KUBECTL_NAMESPACE"
+    - name: Use context
+      shell: bash
+      env:
+        KUBECTL_CONTEXT: ${{ inputs.context }}
+      run: |
+        kubectl config use-context "$KUBECTL_CONTEXT"
