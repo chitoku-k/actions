@@ -1,0 +1,30 @@
+name: Combine images
+description: Download artifacts of image digests
+
+inputs:
+  directory:
+    description: Directory to load digests
+    default: ${{ runner.temp }}/digests
+  name:
+    description: Image name
+    required: true
+  tags:
+    description: Comma-delimited list of tags
+    default: latest
+  annotations:
+    description: Newline-delimited list of annotations
+
+runs:
+  using: composite
+  steps:
+    - name: Create manifest list and push
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      env:
+        ANNOTATIONS: ${{ inputs.annotations }}
+        TAGS: ${{ inputs.tags }}
+      run: |
+        docker buildx imagetools create \
+          $(printf -- '--annotation=index:%s ' $(echo $ANNOTATIONS)) \
+          $(printf -- '--tag=${{ inputs.name }}:%s ' $(tr ',' ' ' <<< "$TAGS")) \
+          $(printf -- '${{ inputs.name }}@sha256:%s ' *)
