@@ -1,0 +1,90 @@
+name: Set up PostgreSQL
+description: Install PostgreSQL
+
+inputs:
+  postgres-version:
+    description: Major version of PostgreSQL
+  port:
+    description: Port number
+    default: "5432"
+  database:
+    description: Name of database
+    default: postgres
+  username:
+    description: Username
+    default: postgres
+  password:
+    description: Password
+    default: postgres
+
+runs:
+  using: composite
+  steps:
+    - name: Install PostgreSQL
+      shell: bash
+      run: |
+        if [[ $RUNNER_OS = Linux ]]; then
+          sudo systemctl mask postgresql.service
+
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-common
+          sudo YES=1 /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y "postgresql-${{ inputs.postgres-version }}"
+
+          sudo chmod 777 /var/run/postgresql
+          PG_BINDIR=$("/usr/lib/postgresql/${{ inputs.postgres-version }}/bin/pg_config" --bindir)
+        elif [[ $RUNNER_OS = Windows ]]; then
+          releases=$(MSYS2_ARG_CONV_EXCL='*' gh api /repos/EnterpriseDB/edb-installers/releases --paginate)
+          version=$(jq \
+            -r \
+            --arg major "${{ inputs.postgres-version }}" \
+            'sort_by(.created_at) | reverse | map(.name | capture("^REL[_-](?<major>\\d+)_(?<minor>\\d+)-(?<build>\\d+)(?:-Win)?$") | select(.major == $major) | "\(.major).\(.minor)-\(.build)") | first' <<< "$releases")
+
+          if [[ -z $version ]]; then
+            echo 'Could not get the version.' >&2
+            exit 1
+          fi
+
+          echo "Downloading PostgreSQL ${version%-*}." >&2
+          filename=postgresql-$version-windows-x64-binaries.zip
+          curl -fLOJ "https://get.enterprisedb.com/postgresql/$filename"
+          7z x "$filename" -o"$PROGRAMFILES" -x!pgsql/pgAdmin* -x!pgsql/StackBuilder pgsql
+
+          PG_BINDIR=$("$PROGRAMFILES/pgsql/bin/pg_config.exe" --bindir)
+        else
+          echo 'Unsupported OS.' >&2
+          exit 1
+        fi
+
+        echo "$PG_BINDIR" >> "$GITHUB_PATH"
+      env:
+        GH_TOKEN: ${{ github.token }}
+    - name: Set up PostgreSQL
+      shell: bash
+      run: |
+        PGDATA=$RUNNER_TEMP/pgdata
+        PWFILE=$RUNNER_TEMP/pwfile
+        echo -n "$PGPASSWORD" > "$PWFILE"
+
+        initdb \
+          --pgdata="$PGDATA" \
+          --username="$PGUSER" \
+          --pwfile="$PWFILE" \
+          --auth=scram-sha-256 \
+          --encoding=UTF-8 \
+          --locale=en_US.UTF-8 \
+          --no-instructions
+
+        rm "$PWFILE"
+        echo "port = $PGPORT" >> "$PGDATA/postgresql.conf"
+
+        pg_ctl start --pgdata="$PGDATA"
+
+        if [[ $PGDATABASE != postgres ]]; then
+          createdb -O "$PGUSER" "$PGDATABASE"
+        fi
+      env:
+        PGPORT: ${{ inputs.port }}
+        PGDATABASE: ${{ inputs.database }}
+        PGUSER: ${{ inputs.username }}
+        PGPASSWORD: ${{ inputs.password }}
