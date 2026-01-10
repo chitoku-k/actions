@@ -1,0 +1,78 @@
+name: Generate next version
+description: Generate next version
+
+inputs:
+  strategy:
+    description: The strategy to bump the version number (major, minor, or patch)
+    required: true
+  pre-release:
+    description: Optional pre-release identifier
+outputs:
+  value:
+    description: Next version (Semantic Versioning)
+    value: ${{ steps.generate.outputs.value }}
+  major:
+    description: Next major version (Semantic Versioning)
+    value: ${{ steps.generate.outputs.major }}
+  minor:
+    description: Next minor version (Semantic Versioning)
+    value: ${{ steps.generate.outputs.minor }}
+  patch:
+    description: Next paatch version (Semantic Versioning)
+    value: ${{ steps.generate.outputs.patch }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate version
+      shell: bash
+      id: generate
+      env:
+        STRATEGY: ${{ inputs.strategy }}
+        PRE_RELEASE: ${{ inputs.pre-release }}
+      run: |
+        value=$(git describe --tags --always --dirty=+dirty)
+
+        if [[ $value =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)(-([A-Za-z-]+(\.[A-Za-z0-9]+)*))?(-([0-9]+)-g([0-9a-f]+))?(\+dirty)?$ ]]; then
+          major=${BASH_REMATCH[1]}
+          minor=${BASH_REMATCH[2]}
+          patch=${BASH_REMATCH[3]}
+        else
+          major=0
+          minor=0
+          patch=0
+        fi
+
+        case $STRATEGY in
+          major)
+            major=$(( major + 1 ))
+            minor=0
+            patch=0
+            ;;
+
+          minor)
+            minor=$(( minor + 1 ))
+            patch=0
+            ;;
+
+          patch)
+            patch=$(( patch + 1 ))
+            ;;
+
+          *)
+            echo "Unsupported strategy: \"$STRATEGY\"" >&2
+            exit 1
+            ;;
+        esac
+
+        value=$major.$minor.$patch
+        if [[ -n $PRE_RELEASE ]]; then
+          value+=-$PRE_RELEASE
+        fi
+
+        cat << EOF >> "$GITHUB_OUTPUT"
+        value=$value
+        major=$major
+        minor=$minor
+        patch=$patch
+        EOF
