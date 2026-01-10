@@ -34,27 +34,32 @@ runs:
         value=$(git describe --tags --always --dirty=+dirty)
 
         if [[ $SEMANTIC_VERSIONING = true ]]; then
-          if [[ $value =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)([0-9A-Za-z-]+\.[0-9]+)?(-([0-9]+)-g([0-9a-f]+))?(\+dirty)?$ ]]; then
+          if [[ $value =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)(-([A-Za-z-]+(\.[A-Za-z0-9]+)*))?(-([0-9]+)-g([0-9a-f]+))?(\+dirty)?$ ]]; then
             major=${BASH_REMATCH[1]}
             minor=${BASH_REMATCH[2]}
             patch=${BASH_REMATCH[3]}
-            pre_release=${BASH_REMATCH[4]}
-            commitnum=${BASH_REMATCH[6]}
-            commithash=${BASH_REMATCH[7]}
-            dirty=${BASH_REMATCH[8]}
+            pre_release=${BASH_REMATCH[5]}
+            commitnum=${BASH_REMATCH[8]}
+            commithash=${BASH_REMATCH[9]}
+            dirty=${BASH_REMATCH[10]}
 
             if [[ $commitnum -gt 0 ]]; then
               patch=$(( patch + 1 ))
-              pre_release=-dev.$commitnum-g$commithash
+              pre_release=dev.$commitnum-g$commithash
             fi
-
-            value=$major.$minor.$patch$pre_release$dirty
           else
             major=0
             minor=0
             patch=0
-            pre_release=-dev.g$value
-            value=$major.$minor.$patch$pre_release
+            pre_release=dev.g$value
+          fi
+
+          value=$major.$minor.$patch
+          if [[ -n $pre_release ]]; then
+            value+=-$pre_release
+          fi
+          if [[ -n ${dirty:-} ]]; then
+            value+=$dirty
           fi
         fi
 
