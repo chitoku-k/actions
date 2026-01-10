@@ -9,6 +9,18 @@ outputs:
   value:
     description: Human-readable object name of the commit
     value: ${{ steps.describe.outputs.value }}
+  major:
+    description: Major version (Semantic Versioning)
+    value: ${{ steps.describe.outputs.major }}
+  minor:
+    description: Minor version (Semantic Versioning)
+    value: ${{ steps.describe.outputs.minor }}
+  patch:
+    description: Patch version (Semantic Versioning)
+    value: ${{ steps.describe.outputs.patch }}
+  pre-release:
+    description: Pre-release version (Semantic Versioning)
+    value: ${{ steps.describe.outputs.pre-release }}
 
 runs:
   using: composite
@@ -21,23 +33,35 @@ runs:
       run: |
         value=$(git describe --tags --always --dirty=+dirty)
 
-        if [[ $SEMANTIC_VERSIONING != true ]]; then
-          echo value="$value" >> "$GITHUB_OUTPUT"
-        elif [[ $value =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)([0-9A-Za-z-]+\.[0-9]+)?(-([0-9]+)-g([0-9a-f]+))?(\+dirty)?$ ]]; then
-          major=${BASH_REMATCH[1]}
-          minor=${BASH_REMATCH[2]}
-          patch=${BASH_REMATCH[3]}
-          pre_release=${BASH_REMATCH[4]}
-          commitnum=${BASH_REMATCH[6]}
-          commithash=${BASH_REMATCH[7]}
-          dirty=${BASH_REMATCH[8]}
+        if [[ $SEMANTIC_VERSIONING = true ]]; then
+          if [[ $value =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)([0-9A-Za-z-]+\.[0-9]+)?(-([0-9]+)-g([0-9a-f]+))?(\+dirty)?$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            pre_release=${BASH_REMATCH[4]}
+            commitnum=${BASH_REMATCH[6]}
+            commithash=${BASH_REMATCH[7]}
+            dirty=${BASH_REMATCH[8]}
 
-          if [[ $commitnum -gt 0 ]]; then
-            patch=$(( patch + 1 ))
-            pre_release=-dev.$commitnum-g$commithash
+            if [[ $commitnum -gt 0 ]]; then
+              patch=$(( patch + 1 ))
+              pre_release=-dev.$commitnum-g$commithash
+            fi
+
+            value=$major.$minor.$patch$pre_release$dirty
+          else
+            major=0
+            minor=0
+            patch=0
+            pre_release=-dev.g$value
+            value=$major.$minor.$patch$pre_release
           fi
-
-          echo value="$major.$minor.$patch$pre_release$dirty" >> "$GITHUB_OUTPUT"
-        else
-          echo value="0.0.0-dev.g$value" >> "$GITHUB_OUTPUT"
         fi
+
+        cat << EOF >> "$GITHUB_OUTPUT"
+        value=${value:-}
+        major=${major:-}
+        minor=${minor:-}
+        patch=${patch:-}
+        pre-release=${pre_release:-}
+        EOF
