@@ -24,7 +24,7 @@ runs:
         mkdir -p "$DIRECTORY"
         touch "$DIRECTORY/${DIGEST#sha256:}"
     - name: Upload digests
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact }}
         path: ${{ inputs.directory }}/*
