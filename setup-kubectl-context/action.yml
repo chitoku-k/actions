@@ -25,7 +25,7 @@ runs:
   using: composite
   steps:
     - name: Set up ID token
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       id: id-token
       env:
         OIDC_AUD: ${{ inputs.aud }}
