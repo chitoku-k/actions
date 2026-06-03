@@ -34,20 +34,19 @@ runs:
           sudo chmod 777 /var/run/postgresql
           PG_BINDIR=$("/usr/lib/postgresql/${{ inputs.postgres-version }}/bin/pg_config" --bindir)
         elif [[ $RUNNER_OS = Windows ]]; then
-          releases=$(MSYS2_ARG_CONV_EXCL='*' gh api /repos/EnterpriseDB/edb-installers/releases --paginate)
-          version=$(jq \
-            -r \
-            --arg major "${{ inputs.postgres-version }}" \
-            'sort_by(.created_at) | reverse | map(.name | capture("^REL[_-](?<major>\\d+)_(?<minor>\\d+)-(?<build>\\d+)(?:-Win)?$") | select(.major == $major) | "\(.major).\(.minor)-\(.build)") | first' <<< "$releases")
+          url=$(curl -sSfL https://www.enterprisedb.com/download-postgresql-binaries |
+            awk 'BEGIN { RS = "<" } match(RS $0, /<a [^>]*href="([^"]+getfile\.jsp[^"]+)"/, m) { print "url = \"" m[1] "\"" }' |
+            curl -sSf --config - -w '%{redirect_url}\n' |
+            awk -v POSTGRES_VERSION="${{ inputs.postgres-version }}" '$0 ~ "postgresql-" POSTGRES_VERSION && /-windows-x64-binaries\.zip$/')
 
-          if [[ -z $version ]]; then
-            echo 'Could not get the version.' >&2
+          if [[ -z $url ]]; then
+            echo 'Could not get the URL.' >&2
             exit 1
           fi
 
-          echo "Downloading PostgreSQL ${version%-*}." >&2
-          filename=postgresql-$version-windows-x64-binaries.zip
-          curl -fLOJ "https://get.enterprisedb.com/postgresql/$filename"
+          filename=${url##*/}
+          echo "Downloading ${filename%-*}." >&2
+          curl -fLOJ "$url"
           7z x "$filename" -o"$PROGRAMFILES" -x!pgsql/pgAdmin* -x!pgsql/StackBuilder pgsql
 
           PG_BINDIR=$("$PROGRAMFILES/pgsql/bin/pg_config.exe" --bindir)
