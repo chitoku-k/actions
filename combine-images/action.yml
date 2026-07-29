@@ -24,7 +24,16 @@ runs:
         ANNOTATIONS: ${{ inputs.annotations }}
         TAGS: ${{ inputs.tags }}
       run: |
+        opts=()
+
+        if [[ -n $ANNOTATIONS ]]; then
+          opts+=($(printf -- '--annotation=index:%s ' $(echo $ANNOTATIONS)))
+        fi
+
+        if [[ -n $TAGS ]]; then
+          opts+=($(printf -- '--tag=${{ inputs.name }}:%s ' $(tr ',' ' ' <<< "$TAGS")))
+        fi
+
         docker buildx imagetools create \
-          $(printf -- '--annotation=index:%s ' $(echo $ANNOTATIONS)) \
-          $(printf -- '--tag=${{ inputs.name }}:%s ' $(tr ',' ' ' <<< "$TAGS")) \
+          "${opts[@]}" \
           $(printf -- '${{ inputs.name }}@sha256:%s ' *)
